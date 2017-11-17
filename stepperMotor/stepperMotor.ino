@@ -1,3 +1,6 @@
+ /*
+ Example code from https://learn.sparkfun.com/tutorials/easy-driver-hook-up-guide
+ */
  //Declare pin functions on Redboard
 #define stp 2
 #define dir 3
@@ -6,7 +9,7 @@
 #define EN  6
 
 //Declare variables for functions
-char user_input;
+String user_input;
 int x;
 int y;
 int state;
@@ -30,12 +33,24 @@ void setup() {
   Serial.println();
 }
 
+float currentExpectedRotationValue = 0;
+float toRotate = 0;
 
  //Main loop
 void loop() {
   while(Serial.available()){
-      user_input = Serial.read(); //Read user input and trigger appropriate function
+      toRotate = Serial.parseInt(); //Read user input and trigger appropriate function
+      //toRotate = user_input.toInt();
+      
       digitalWrite(EN, LOW); //Pull enable pin low to allow motor control
+      
+      if(toRotate > 0){
+        StepForwardToAngle(toRotate);
+      }
+      else{
+        
+      }
+      /*
       if (user_input =='1')
       {
          StepForwardDefault();
@@ -55,17 +70,40 @@ void loop() {
       else
       {
         Serial.println("Invalid option entered.");
-      }
+      }*/
       resetEDPins();
   }
 }
+
+
+//Default microstep mode function
+void StepForwardToAngle(int toAngle)
+{
+  const float STEP_ANGLE = 1.8;
+  Serial.print("Moving forward to ");
+  Serial.println(toAngle);
+  
+  digitalWrite(dir, LOW); //Pull direction pin low to move "forward"
+
+  
+  for( float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)  //Loop the forward stepping enough times for motion to be visible
+  {
+    digitalWrite(stp,HIGH); //Trigger one step forward
+    delay(1);
+    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+  }
+  Serial.println("Enter new option");
+  Serial.println();
+}
+
 
 //Default microstep mode function
 void StepForwardDefault()
 {
   Serial.println("Moving forward at default step mode.");
   digitalWrite(dir, LOW); //Pull direction pin low to move "forward"
-  for(x= 1; x<1000; x++)  //Loop the forward stepping enough times for motion to be visible
+  for(x= 1; x<200; x++)  //Loop the forward stepping enough times for motion to be visible
   {
     digitalWrite(stp,HIGH); //Trigger one step forward
     delay(1);
@@ -148,7 +186,4 @@ void resetEDPins()
   digitalWrite(MS2, LOW);
   digitalWrite(EN, HIGH);
 }
-
-
-
 
