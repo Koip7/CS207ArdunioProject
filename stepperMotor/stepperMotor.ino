@@ -45,8 +45,11 @@ void update_current_angle(int angleMoved){
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
-  while(currentExpectedRotationValue > FULL_ROTATION || currentExpectedRotationValue < 0){
+  while(currentExpectedRotationValue > FULL_ROTATION){
     currentExpectedRotationValue -= FULL_ROTATION;
+  }
+  while(currentExpectedRotationValue < 0){
+    currentExpectedRotationValue += FULL_ROTATION;
   }
 
   Serial.print("Current angle: ");
