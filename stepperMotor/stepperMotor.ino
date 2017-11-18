@@ -8,9 +8,7 @@ const float STEP_ANGLE = 1.8;
 const int FULL_ROTATION = 360;
 
 //Declare variables for functions
-String user_input;
-float currentExpectedRotationValue = 0;
-float toAngle = 0;
+float currentExpectedRotationValue;
 
 void setup() {
   pinMode(stp, OUTPUT);
@@ -23,20 +21,16 @@ void setup() {
   Serial.println("Begin motor control");
   Serial.println();
   //Print function list for user selection
-  Serial.println("Enter number for control option:");
-  Serial.println("1. Turn at default microstep mode.");
-  Serial.println("2. Reverse direction at default microstep mode.");
-  Serial.println("3. Turn at 1/8th microstep mode.");
-  Serial.println("4. Step forward and reverse directions.");
-  Serial.println();
+  Serial.println("Enter angle to rotate to:");
+  currentExpectedRotationValue = 0;
 }
 
 
  //Main loop
 void loop() {
+  float toAngle;
   while(Serial.available()){
       toAngle = Serial.parseInt(); //Read user input and trigger appropriate function
-      //toRotate = user_input.toInt();
       
       digitalWrite(EN, LOW); //Pull enable pin low to allow motor control
       step_to_angle(toAngle);
@@ -89,7 +83,7 @@ void step_by_angle(int toAngle)
     Serial.println(toAngle);
   }
 
-  for( float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)
+  for(float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)
   {
     digitalWrite(stp,HIGH); //Trigger one step forward
     delay(1);//need to check if this can be made smaller ot make motor move faster 
