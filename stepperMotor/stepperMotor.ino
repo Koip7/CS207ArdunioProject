@@ -8,7 +8,8 @@ const float STEP_ANGLE = 1.8;
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION = 360;
 
-//Declare variables for functions
+//This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
+//TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
 float currentExpectedRotationValue;
 
 void setup() {
@@ -20,7 +21,6 @@ void setup() {
   reset_ED_pins(); //Set step, direction, microstep and enable pins to default states
   Serial.begin(9600); //Open Serial connection for debugging
   Serial.println("Begin motor control");
-  Serial.println();
   //Print function list for user selection
   Serial.println("Enter angle to rotate to:");
   digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
@@ -58,13 +58,13 @@ void step_to_angle(int toAngle){
   while(toAngle < 0){
     toAngle += FULL_ROTATION;
   }
-  //if rotating C will get you toAngle quicker
+  //if rotating C will get you toAngle quicker if the rotation travelled if travelled clockwise is greater than half a full rotation(180 if 360) then go the other way
   if(toAngle - currentExpectedRotationValue > FULL_ROTATION / 2){
     step_by_angle(-FULL_ROTATION + toAngle - currentExpectedRotationValue);
   }
   //if rotating CC will get you toAngle quicker
   else{
-    step_by_angle(currentExpectedRotationValue - toAngle);
+    step_by_angle(toAngle - currentExpectedRotationValue);
   }
 }
 
