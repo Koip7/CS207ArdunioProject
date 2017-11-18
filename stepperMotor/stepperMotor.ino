@@ -4,6 +4,8 @@
 #define MS2 5
 #define EN  6
 const float STEP_ANGLE = 1.8;
+//might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
+const int FULL_ROTATION = 360;
 
 //Declare variables for functions
 String user_input;
@@ -47,7 +49,7 @@ void step_to_angle(int toAngle){
   //if rotating C will get you toAngle quicker
   if(toAngle - currentExpectedRotationValue > 180){
     //this is using the assumption that the angle to be rotate to is always entered as a positive value may have to change this in the future
-    step_by_angle(-360 + toAngle - currentExpectedRotationValue);
+    step_by_angle(-FULL_ROTATION + toAngle - currentExpectedRotationValue);
   }
   //if rotating CC will get you toAngle quicker
   else{
@@ -57,8 +59,6 @@ void step_to_angle(int toAngle){
 
 //cleans up current angle so we dont get extre mely large angle values and we have data that we can actually use in the future
 void update_current_angle(int angleMoved){
-  //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
-  const int FULL_ROTATION = 360;
   currentExpectedRotationValue += angleMoved;
 
   //keeps the angle positive and under FULL_ROTATION
