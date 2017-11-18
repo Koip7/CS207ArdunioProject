@@ -23,7 +23,7 @@ void setup() {
   Serial.println("Begin motor control");
   //Print function list for user selection
   Serial.println("Enter angle to rotate to:");
-  digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
+  
   currentExpectedRotationValue = 0;
 }
 
@@ -32,6 +32,7 @@ void setup() {
 void loop() {
   float toAngle;
   while(Serial.available()){
+      digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
       toAngle = Serial.parseInt(); //Read user input and trigger appropriate function
       step_to_angle(toAngle);
       reset_ED_pins();
@@ -76,19 +77,19 @@ void step_by_angle(int toAngle)
 { 
   //set direction to rotate
   if(toAngle >= 0){
-    digitalWrite(dir, HIGH);
-    //TODO: when testing make sure this is the right direction
-    Serial.print("Moving CC by ");
-    Serial.println(toAngle);
-  }
-  else{
     digitalWrite(dir, LOW);
     //TODO: when testing make sure this is the right direction
     Serial.print("Moving C by ");
     Serial.println(toAngle);
   }
-
-  for(float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)
+  else{
+    digitalWrite(dir, HIGH);
+    //TODO: when testing make sure this is the right direction
+    Serial.print("Moving CC by ");
+    Serial.println(toAngle);
+  }
+  
+  for(float curAngle = 0; curAngle <= (toAngle > 0 ? (float)toAngle : -(float)toAngle); curAngle += STEP_ANGLE)
   {
     digitalWrite(stp,HIGH); //Trigger one step forward
     delay(1);//need to check if this can be made smaller ot make motor move faster 
@@ -111,6 +112,6 @@ void reset_ED_pins()
   digitalWrite(dir, LOW);
   digitalWrite(MS1, LOW);
   digitalWrite(MS2, LOW);
-  //digitalWrite(EN, HIGH);
+  digitalWrite(EN, HIGH);
 }
 
