@@ -111,6 +111,6 @@ void reset_ED_pins()
   digitalWrite(dir, LOW);
   digitalWrite(MS1, LOW);
   digitalWrite(MS2, LOW);
-  digitalWrite(EN, HIGH);
+  //digitalWrite(EN, HIGH);
 }
 
