@@ -5,6 +5,7 @@
 #define EN  6
 const float STEP_ANGLE = 1.8;
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
+//the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION = 360;
 
 //Declare variables for functions
@@ -22,6 +23,7 @@ void setup() {
   Serial.println();
   //Print function list for user selection
   Serial.println("Enter angle to rotate to:");
+  digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
   currentExpectedRotationValue = 0;
 }
 
@@ -31,23 +33,8 @@ void loop() {
   float toAngle;
   while(Serial.available()){
       toAngle = Serial.parseInt(); //Read user input and trigger appropriate function
-      
-      digitalWrite(EN, LOW); //Pull enable pin low to allow motor control
       step_to_angle(toAngle);
-      
       reset_ED_pins();
-  }
-}
-
-void step_to_angle(int toAngle){
-  //if rotating C will get you toAngle quicker
-  if(toAngle - currentExpectedRotationValue > 180){
-    //this is using the assumption that the angle to be rotate to is always entered as a positive value may have to change this in the future
-    step_by_angle(-FULL_ROTATION + toAngle - currentExpectedRotationValue);
-  }
-  //if rotating CC will get you toAngle quicker
-  else{
-    step_by_angle(currentExpectedRotationValue - toAngle);
   }
 }
 
@@ -64,6 +51,21 @@ void update_current_angle(int angleMoved){
 
   Serial.print("Current angle: ");
   Serial.println(currentExpectedRotationValue);
+}
+
+//rotates to a specific angle where the motors starting position is used as the starting angle from which all else is measured
+void step_to_angle(int toAngle){
+  while(toAngle < 0){
+    toAngle += FULL_ROTATION;
+  }
+  //if rotating C will get you toAngle quicker
+  if(toAngle - currentExpectedRotationValue > FULL_ROTATION / 2){
+    step_by_angle(-FULL_ROTATION + toAngle - currentExpectedRotationValue);
+  }
+  //if rotating CC will get you toAngle quicker
+  else{
+    step_by_angle(currentExpectedRotationValue - toAngle);
+  }
 }
 
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
