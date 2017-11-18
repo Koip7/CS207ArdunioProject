@@ -1,18 +1,14 @@
- /*
- Example code from https://learn.sparkfun.com/tutorials/easy-driver-hook-up-guide
- */
- //Declare pin functions on Redboard
 #define stp 2
 #define dir 3
 #define MS1 4
 #define MS2 5
 #define EN  6
+const float STEP_ANGLE = 1.8;
 
 //Declare variables for functions
 String user_input;
-int x;
-int y;
-int state;
+float currentExpectedRotationValue = 0;
+float toAngle = 0;
 
 void setup() {
   pinMode(stp, OUTPUT);
@@ -20,7 +16,7 @@ void setup() {
   pinMode(MS1, OUTPUT);
   pinMode(MS2, OUTPUT);
   pinMode(EN, OUTPUT);
-  resetEDPins(); //Set step, direction, microstep and enable pins to default states
+  reset_ED_pins(); //Set step, direction, microstep and enable pins to default states
   Serial.begin(9600); //Open Serial connection for debugging
   Serial.println("Begin motor control");
   Serial.println();
@@ -33,152 +29,84 @@ void setup() {
   Serial.println();
 }
 
-float currentExpectedRotationValue = 0;
-float toRotate = 0;
 
  //Main loop
 void loop() {
   while(Serial.available()){
-      toRotate = Serial.parseInt(); //Read user input and trigger appropriate function
+      toAngle = Serial.parseInt(); //Read user input and trigger appropriate function
       //toRotate = user_input.toInt();
       
       digitalWrite(EN, LOW); //Pull enable pin low to allow motor control
+      step_to_angle(toAngle);
       
-      if(toRotate > 0){
-        StepForwardToAngle(toRotate);
-      }
-      else{
-        
-      }
-      /*
-      if (user_input =='1')
-      {
-         StepForwardDefault();
-      }
-      else if(user_input =='2')
-      {
-        ReverseStepDefault();
-      }
-      else if(user_input =='3')
-      {
-        SmallStepMode();
-      }
-      else if(user_input =='4')
-      {
-        ForwardBackwardStep();
-      }
-      else
-      {
-        Serial.println("Invalid option entered.");
-      }*/
-      resetEDPins();
+      reset_ED_pins();
   }
 }
 
+void step_to_angle(int toAngle){
+  //if rotating C will get you toAngle quicker
+  if(toAngle - currentExpectedRotationValue > 180){
+    //this is using the assumption that the angle to be rotate to is always entered as a positive value may have to change this in the future
+    step_by_angle(-360 + toAngle - currentExpectedRotationValue);
+  }
+  //if rotating CC will get you toAngle quicker
+  else{
+    step_by_angle(currentExpectedRotationValue - toAngle);
+  }
+}
 
-//Default microstep mode function
-void StepForwardToAngle(int toAngle)
-{
-  const float STEP_ANGLE = 1.8;
-  Serial.print("Moving forward to ");
-  Serial.println(toAngle);
+//cleans up current angle so we dont get extre mely large angle values and we have data that we can actually use in the future
+void update_current_angle(int angleMoved){
+  //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
+  const int FULL_ROTATION = 360;
+  currentExpectedRotationValue += angleMoved;
+
+  //keeps the angle positive and under FULL_ROTATION
+  //theres probally an effcient mathematiical way to do this
+  //TODO: find this way
+  while(currentExpectedRotationValue > FULL_ROTATION || currentExpectedRotationValue < 0){
+    currentExpectedRotationValue -= FULL_ROTATION;
+  }
+
+  Serial.print("Current angle: ");
+  Serial.println(currentExpectedRotationValue);
+}
+
+//Outputs signals to make the stepper motor rotate by a specifc number of degrees.
+void step_by_angle(int toAngle)
+{ 
+  //set direction to rotate
+  if(toAngle >= 0){
+    digitalWrite(dir, HIGH);
+    //TODO: when testing make sure this is the right direction
+    Serial.print("Moving CC by ");
+    Serial.println(toAngle);
+  }
+  else{
+    digitalWrite(dir, LOW);
+    //TODO: when testing make sure this is the right direction
+    Serial.print("Moving C by ");
+    Serial.println(toAngle);
+  }
+
+  for( float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)
+  {
+    digitalWrite(stp,HIGH); //Trigger one step forward
+    delay(1);//need to check if this can be made smaller ot make motor move faster 
+    //TODO look at an acceleration library to increase speed
+    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+  }
+
+  //update current rotation angle
+  update_current_angle(toAngle);
   
-  digitalWrite(dir, LOW); //Pull direction pin low to move "forward"
-
-  
-  for( float curAngle = 0; curAngle <= (float)toAngle; curAngle += STEP_ANGLE)  //Loop the forward stepping enough times for motion to be visible
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
   Serial.println("Enter new option");
-  Serial.println();
-}
-
-
-//Default microstep mode function
-void StepForwardDefault()
-{
-  Serial.println("Moving forward at default step mode.");
-  digitalWrite(dir, LOW); //Pull direction pin low to move "forward"
-  for(x= 1; x<200; x++)  //Loop the forward stepping enough times for motion to be visible
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
-  Serial.println("Enter new option");
-  Serial.println();
-}
-
-//Reverse default microstep mode function
-void ReverseStepDefault()
-{
-  Serial.println("Moving in reverse at default step mode.");
-  digitalWrite(dir, HIGH); //Pull direction pin high to move in "reverse"
-  for(x= 1; x<1000; x++)  //Loop the stepping enough times for motion to be visible
-  {
-    digitalWrite(stp,HIGH); //Trigger one step
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
-  Serial.println("Enter new option");
-  Serial.println();
-}
-
-// 1/8th microstep foward mode function
-void SmallStepMode()
-{
-  Serial.println("Stepping at 1/8th microstep mode.");
-  digitalWrite(dir, LOW); //Pull direction pin low to move "forward"
-  digitalWrite(MS1, HIGH); //Pull MS1, and MS2 high to set logic to 1/8th microstep resolution
-  digitalWrite(MS2, HIGH);
-  for(x= 1; x<1000; x++)  //Loop the forward stepping enough times for motion to be visible
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
-  Serial.println("Enter new option");
-  Serial.println();
-}
-
-//Forward/reverse stepping function
-void ForwardBackwardStep()
-{
-  Serial.println("Alternate between stepping forward and reverse.");
-  for(x= 1; x<5; x++)  //Loop the forward stepping enough times for motion to be visible
-  {
-    //Read direction pin state and change it
-    state=digitalRead(dir);
-    if(state == HIGH)
-    {
-      digitalWrite(dir, LOW);
-    }
-    else if(state ==LOW)
-    {
-      digitalWrite(dir,HIGH);
-    }
-
-    for(y=1; y<1000; y++)
-    {
-      digitalWrite(stp,HIGH); //Trigger one step
-      delay(1);
-      digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-      delay(1);
-    }
-  }
-  Serial.println("Enter new option:");
   Serial.println();
 }
 
 //Reset Easy Driver pins to default states
-void resetEDPins()
+void reset_ED_pins()
 {
   digitalWrite(stp, LOW);
   digitalWrite(dir, LOW);
