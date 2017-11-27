@@ -6,7 +6,9 @@
 const float STEP_ANGLE = 1.8;
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
-const int FULL_ROTATION = 360;
+const int FULL_ROTATION_MOTOR = 360;
+const int FULL_ROTATION_RATIO = 2;
+const int FULL_ROTATION = FULL_ROTATION_MOTOR * FULL_ROTATION_RATIO;
 
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
@@ -34,7 +36,7 @@ void loop() {
   while(Serial.available()){
       digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
       toAngle = Serial.parseInt(); //Read user input and trigger appropriate function
-      step_to_angle(toAngle);
+      step_to_angle(toAngle * FULL_ROTATION_RATIO);
       reset_ED_pins();
   }
 }
@@ -59,6 +61,8 @@ void update_current_angle(int angleMoved){
 
 //rotates to a specific angle where the motors starting position is used as the starting angle from which all else is measured
 void step_to_angle(int toAngle){
+  while(toAngle > FULL_ROTATION)
+    toAngle -= FULL_ROTATION;
   while(toAngle < 0){
     toAngle += FULL_ROTATION;
   }
