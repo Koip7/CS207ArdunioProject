@@ -23,7 +23,7 @@ void setup() {
   Serial.println("Begin motor control");
   //Print function list for user selection
   Serial.println("Enter angle to rotate to:");
-  
+  Serial.setTimeout(50);
   currentExpectedRotationValue = 0;
 }
 
@@ -62,40 +62,63 @@ void step_to_angle(int toAngle){
   while(toAngle < 0){
     toAngle += FULL_ROTATION;
   }
-  //if rotating C will get you toAngle quicker if the rotation travelled if travelled clockwise is greater than half a full rotation(180 if 360) then go the other way
-  if(toAngle - currentExpectedRotationValue > FULL_ROTATION / 2){
-    step_by_angle(-FULL_ROTATION + toAngle - currentExpectedRotationValue);
-  }
-  //if rotating CC will get you toAngle quicker
-  else{
-    step_by_angle(toAngle - currentExpectedRotationValue);
-  }
+
+  toAngle -= currentExpectedRotationValue;
+  if(toAngle == FULL_ROTATION || toAngle == 0) return;
+  else if(abs(toAngle) > FULL_ROTATION / 2)
+    if(toAngle > 0)
+      toAngle -= FULL_ROTATION;
+    else
+      toAngle += FULL_ROTATION;
+
+  step_by_angle(toAngle);
 }
 
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
 void step_by_angle(int toAngle)
 { 
+  float curAngleMoved;
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
     //TODO: when testing make sure this is the right direction
-    Serial.print("Moving C by ");
+    Serial.print("Moving CC by ");
     Serial.println(toAngle);
   }
   else{
     digitalWrite(dir, HIGH);
     //TODO: when testing make sure this is the right direction
-    Serial.print("Moving CC by ");
+    Serial.print("Moving C by ");
     Serial.println(toAngle);
   }
   
-  for(float curAngle = 0; curAngle <= (toAngle > 0 ? (float)toAngle : -(float)toAngle); curAngle += STEP_ANGLE)
+  if (toAngle != 0)
   {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);//need to check if this can be made smaller ot make motor move faster 
-    //TODO look at an acceleration library to increase speed
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
+    for(curAngleMoved = 0; curAngleMoved <= abs((float)toAngle) /*- STEP_ANGLE*/; curAngleMoved += STEP_ANGLE)
+    {
+      digitalWrite(stp,HIGH); //Trigger one step forward
+      delay(1);//need to check if this can be made smaller ot make motor move faster 
+      //TODO look at an acceleration library to increase speed
+      digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+      delay(1);
+    }
+    if (curAngleMoved != abs(toAngle))
+    {
+      /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
+       * TODO: maybe add this in for getting precise movement
+      digitalWrite(MS1,HIGH);
+      digitalWrite(MS2,LOW);
+
+      for(curAngleMoved = 0; curAngleMoved <= abs(toAngle) - STEP_ANGLE; curAngleMoved += MICRO_STEP_ANGLE)
+      {
+        digitalWrite(stp,HIGH); //Trigger one step forward
+        delay(1);//need to check if this can be made smaller ot make motor move faster 
+        //TODO look at an acceleration library to increase speed
+        digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+        delay(1);
+      }*/
+    }
+    
   }
 
   //update current rotation angle
