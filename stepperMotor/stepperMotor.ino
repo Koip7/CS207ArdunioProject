@@ -1,29 +1,56 @@
+/* Stepper motor control by JSmithers
+ *  
+ * This program allows for a user to send angles to a stepper motor and ensures that the most efficient path is taken to get to the angle inputted, clockwise or counter clockwise rotation
+ * The program currently assumes that the stepper motor driving a gear that is two times larger than it but this can be changed with the commands -ratio ANGLE or -gangle ANGLE
+ */
+
+//Motor pin definitions
 #define stp 2
 #define dir 3
 #define MS1 4
 #define MS2 5
 #define EN  6
 
+//The various modes the system can be in
+//The angle entered while in this mode corresponds to the angle of the driven gear
 #define GEAR_ANGLE_MODE 0
+//The angle entered while in this mode corresponds to the angle of the motor gear
 #define MOTOR_ANGLE_MODE 1
+//EN is set  low allowing the motor to be manually turned the currentExpectedRotationValue is reset tp 0 when in this state
 #define REST_MODE 2
 int mode = GEAR_ANGLE_MODE;
 
+//the step angle of the motor
 const float STEP_ANGLE = 1.8;
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION_MOTOR = 360;
 
+//The ratio of the driven gear to the motor gear
 int fullRotationRatio = 2;
-int FULL_ROTATION = FULL_ROTATION_MOTOR * fullRotationRatio;
+//The number of degrees the motor gear must rotate to fully rotate the driven gear
+int fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
 
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
 float currentExpectedRotationValue;
 
+
+//Reset Easy Driver pins to default states
 void reset_ED_pins();
+
+//outputs help info to the serial port
 void output_help();
+
+//rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
+//finds the most efficient route to the requested rotation (C or CC)and translates it into a value that step_by_angle can use
 void step_to_angle(float toAngle);
+
+//Outputs signals to make the stepper motor rotate by a specifc number of degrees.
+void step_by_angle(float toAngle);
+
+//cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
+void update_current_angle(int angleMoved);
 
 void setup() {
   pinMode(stp, OUTPUT);
@@ -54,26 +81,34 @@ void loop() {
   int dash_index;
   int space_index;
   
-  
   while(Serial.available()){
       digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
       input = Serial.readString(); //Read user input and trigger appropriate function
+
+      //This is the parsing of the input
+      /*Currently its pretty inefficient
+        TODO:Make this better
+      */
       if(input.length() > 0){
         dash_index = input.indexOf('-');
-        
         if(input.length() > dash_index && dash_index != -1){
           space_index = input.indexOf(' ', dash_index);
           if(space_index == input.length())
             space_index = -1;
-            
+
+          option = input.substring(dash_index + 1, input.length());
           if(space_index != -1){
-            option = input.substring(dash_index + 1, space_index);
             sub_option = input.substring(space_index + 1, input.length());
+            //this is with the assumption that the second part of a command will always be a number
             numIn = sub_option.toInt();
+            //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
+            if (numIn == 0)
+            {
+              space_index = -1;
+              Serial.println("Expected value incorrect enter -? for help");
+            }
           }
-          else{
-            option = input.substring(dash_index + 1, input.length());
-          }
+          
           if(option == "?"){
               output_help();
           }
@@ -83,11 +118,8 @@ void loop() {
                 Serial.println("GEAR ANGLE MODE ACTIVATED");
                 mode = GEAR_ANGLE_MODE;
               }
-              else if(numIn > 0){
-                step_to_angle(numIn * fullRotationRatio);
-              }
               else{
-                Serial.println("Expected value incorrect enter -? for help");
+                step_to_angle(numIn * fullRotationRatio);
               }
           }
           else if(option == "m"){
@@ -96,22 +128,14 @@ void loop() {
                 Serial.println("MOTOR ANGLE MODE ACTIVATED");
                 mode = MOTOR_ANGLE_MODE;
               }
-              else if(numIn > 0){
-                step_to_angle(numIn);
-              }
               else{
-                Serial.println("Expected value incorrect enter -? for help");
+                step_to_angle(numIn);
               }
           }
           else if(option == "ratio"){
-             if(numIn > 0){
-                step_to_angle(0);
-                fullRotationRatio = numIn;
-                FULL_ROTATION = numIn * FULL_ROTATION_MOTOR;
-              }
-              else{
-                Serial.println("Expected value incorrect enter -? for help");
-              }
+            step_to_angle(0);
+            fullRotationRatio = numIn;
+            fullRotation = numIn * FULL_ROTATION_MOTOR;
           }
           else if(option == "reset"){
             Serial.println("MOTOR REST MODE ACTIVATED");
@@ -120,26 +144,27 @@ void loop() {
             digitalWrite(EN, HIGH);
           }
           else if(option == "gangle"){
-            if(space_index != -1 && numIn > 0){
+            if(space_index != -1){
               step_to_angle(0);
-              FULL_ROTATION = numIn;
-              fullRotationRatio = FULL_ROTATION / FULL_ROTATION_MOTOR;
+              fullRotation = numIn;
+              fullRotationRatio = fullRotation / FULL_ROTATION_MOTOR;
               Serial.print("Set driven gear full rotation to: ");
               Serial.println(numIn);
             }
             else{
               Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
-              Serial.println(FULL_ROTATION);
+              Serial.println(fullRotation);
             }
           }
           else if(option == "values"){
             Serial.print("Gangle: ");
-            Serial.println(FULL_ROTATION);
+            Serial.println(fullRotation);
             Serial.print("Gear ratio: ");
             Serial.println(fullRotationRatio);
           }
-         }
-         else{
+          }
+        else{
+          //If no input functions were activated just act according to the current mode
           numIn = input.toInt();
           switch(mode){
           case GEAR_ANGLE_MODE:
@@ -158,48 +183,44 @@ void loop() {
             Serial.println("No change in rest mode");
             reset_ED_pins();
           }
+          Serial.println("Enter new option");
+          Serial.println();
         }
+        //Tabbing is off here messing with me TODO:fix this
     }
   }      
 }
-
 
 void output_help(){
   Serial.println("-g");
   Serial.println("\tChanges mode to driven gear mode. The angles now inputted into the system will now be in relation to the driven gear rather than the motor gear rotation");
   Serial.println("-g ANGLE");
   Serial.println("\t Does not change mode rotates the driven gear to ANGLE, ANGLE must be greater than 0");
-  
   Serial.println("-m");
   Serial.println("\tChanges mode to motor gear mode. The angles now inputted into the system will now be in relation to the motor gear rather than the driven gear rotation");
   Serial.println("-m ANGLE");
   Serial.println("\t Does not change mode rotates the motor to ANGLE, ANGLE must be greater than 0");
-  
   Serial.println("-ratio RATIO_VAL");
   Serial.println("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0");
-
   Serial.println("-reset");
   Serial.println("\tChanges the most to rest mode allows the motor to be manually rotated\n");
-
   Serial.println("-gangle ANGLE");
   Serial.println("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation");
-
   Serial.println("-values");
   Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
 }
 
-//cleans up current angle so we dont get extre mely large angle values and we have data that we can actually use in the future
 void update_current_angle(int angleMoved){
   currentExpectedRotationValue += angleMoved;
 
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
-  while(currentExpectedRotationValue > FULL_ROTATION){
-    currentExpectedRotationValue -= FULL_ROTATION;
+  while(currentExpectedRotationValue > fullRotation){
+    currentExpectedRotationValue -= fullRotation;
   }
   while(currentExpectedRotationValue < 0){
-    currentExpectedRotationValue += FULL_ROTATION;
+    currentExpectedRotationValue += fullRotation;
   }
 
   Serial.print("Current motor angle: ");
@@ -208,26 +229,24 @@ void update_current_angle(int angleMoved){
   Serial.println(currentExpectedRotationValue / fullRotationRatio);
 }
 
-//rotates to a specific angle where the motors starting position is used as the starting angle from which all else is measured
 void step_to_angle(float toAngle){
-  while(toAngle > FULL_ROTATION)
-    toAngle -= FULL_ROTATION;
+  while(toAngle > fullRotation)
+    toAngle -= fullRotation;
   while(toAngle < 0){
-    toAngle += FULL_ROTATION;
+    toAngle += fullRotation;
   }
 
   toAngle -= currentExpectedRotationValue;
-  if(toAngle == FULL_ROTATION || toAngle == 0) return;
-  else if(abs(toAngle) > FULL_ROTATION / 2)
+  if(toAngle == fullRotation || toAngle == 0) return;
+  else if(abs(toAngle) > fullRotation / 2)
     if(toAngle > 0)
-      toAngle -= FULL_ROTATION;
+      toAngle -= fullRotation;
     else
-      toAngle += FULL_ROTATION;
+      toAngle += fullRotation;
 
   step_by_angle(toAngle);
 }
 
-//Outputs signals to make the stepper motor rotate by a specifc number of degrees.
 void step_by_angle(float toAngle)
 { 
   float curAngleMoved;
@@ -255,10 +274,10 @@ void step_by_angle(float toAngle)
       digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
       delay(1);
     }
+    /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
+    * TODO: maybe add this in for getting precise movement
     if (curAngleMoved != abs(toAngle))
     {
-      /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
-       * TODO: maybe add this in for getting precise movement
       digitalWrite(MS1,HIGH);
       digitalWrite(MS2,LOW);
 
@@ -269,25 +288,17 @@ void step_by_angle(float toAngle)
         //TODO look at an acceleration library to increase speed
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
-      }*/
-    }
-    
+      }
+    }*/
   }
-
   //update current rotation angle
   update_current_angle(toAngle);
-  
-  Serial.println("Enter new option");
-  Serial.println();
 }
 
-//Reset Easy Driver pins to default states
 void reset_ED_pins()
 {
   digitalWrite(stp, LOW);
   digitalWrite(dir, LOW);
   digitalWrite(MS1, LOW);
   digitalWrite(MS2, LOW);
-  //digitalWrite(EN, HIGH);
 }
-
