@@ -74,7 +74,6 @@ void loop() {
           else{
             option = input.substring(dash_index + 1, input.length());
           }
-          
           if(option == "?"){
               output_help();
           }
@@ -105,19 +104,18 @@ void loop() {
               }
           }
           else if(option == "ratio"){
-              if(space_index != -1){
-                FULL_ROTATION = numIn * FULL_ROTATION_MOTOR;
-              }
-              else if(numIn > 0){
+             if(numIn > 0){
                 step_to_angle(0);
-                step_to_angle(numIn * fullRotationRatio);
+                fullRotationRatio = numIn;
+                FULL_ROTATION = numIn * FULL_ROTATION_MOTOR;
               }
               else{
                 Serial.println("Expected value incorrect enter -? for help");
               }
           }
-          else if(option == "rest"){
+          else if(option == "reset"){
             Serial.println("MOTOR REST MODE ACTIVATED");
+            currentExpectedRotationValue = 0;
             mode = REST_MODE;
             digitalWrite(EN, HIGH);
           }
@@ -130,9 +128,15 @@ void loop() {
               Serial.println(numIn);
             }
             else{
-              Serial.print("Number of degr10ees that motor must turn for driven gear to turn: ");
+              Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
               Serial.println(FULL_ROTATION);
             }
+          }
+          else if(option == "values"){
+            Serial.print("Gangle: ");
+            Serial.println(FULL_ROTATION);
+            Serial.print("Gear ratio: ");
+            Serial.println(fullRotationRatio);
           }
          }
          else{
@@ -174,11 +178,14 @@ void output_help(){
   Serial.println("-ratio RATIO_VAL");
   Serial.println("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0");
 
-  Serial.println("-rest");
+  Serial.println("-reset");
   Serial.println("\tChanges the most to rest mode allows the motor to be manually rotated\n");
 
   Serial.println("-gangle ANGLE");
   Serial.println("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation");
+
+  Serial.println("-values");
+  Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
 }
 
 //cleans up current angle so we dont get extre mely large angle values and we have data that we can actually use in the future
@@ -195,8 +202,10 @@ void update_current_angle(int angleMoved){
     currentExpectedRotationValue += FULL_ROTATION;
   }
 
-  Serial.print("Current angle: ");
+  Serial.print("Current motor angle: ");
   Serial.println(currentExpectedRotationValue);
+  Serial.print("Current driven gear angle: ");
+  Serial.println(currentExpectedRotationValue / fullRotationRatio);
 }
 
 //rotates to a specific angle where the motors starting position is used as the starting angle from which all else is measured
