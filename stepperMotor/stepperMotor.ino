@@ -1,7 +1,7 @@
 /* Stepper motor control by JSmithers
  *  
  * This program allows for a user to send angles to a stepper motor and ensures that the most efficient path is taken to get to the angle inputted, clockwise or counter clockwise rotation
- * The program currently assumes that the stepper motor driving a gear that is two times larger than it but this can be changed with the commands -ratio ANGLE or -gangle ANGLE
+ * The program currently assumes that the stepper motor driving a gear that is two times larger than it but this can be changed with the commands -ratio ANGLE or -gangle ANGLE commands
  */
 
 //Motor pin definitions
@@ -25,30 +25,23 @@ const float STEP_ANGLE = 1.8;
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION_MOTOR = 360;
-
 //The ratio of the driven gear to the motor gear
 int fullRotationRatio = 2;
 //The number of degrees the motor gear must rotate to fully rotate the driven gear
 int fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
-
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
 float currentExpectedRotationValue;
 
-
 //Reset Easy Driver pins to default states
 void reset_ED_pins();
-
 //outputs help info to the serial port
 void output_help();
-
 //rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
 //finds the most efficient route to the requested rotation (C or CC)and translates it into a value that step_by_angle can use
 void step_to_angle(float toAngle);
-
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
 void step_by_angle(float toAngle);
-
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
 void update_current_angle(int angleMoved);
 
@@ -70,16 +63,14 @@ void setup() {
   currentExpectedRotationValue = 0;
 }
 
-
- //Main loop
 void loop() {
   float toAngle;
   String input;
   String option;
-  String sub_option;
+  String subOption;
   int numIn;
-  int dash_index;
-  int space_index;
+  int dashIndex;
+  int spaceIndex;
   
   while(Serial.available()){
       digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
@@ -90,21 +81,21 @@ void loop() {
         TODO:Make this better
       */
       if(input.length() > 0){
-        dash_index = input.indexOf('-');
-        if(input.length() > dash_index && dash_index != -1){
-          space_index = input.indexOf(' ', dash_index);
-          if(space_index == input.length())
-            space_index = -1;
+        dashIndex = input.indexOf('-');
+        if(input.length() > dashIndex && dashIndex != -1){
+          spaceIndex = input.indexOf(' ', dashIndex);
+          if(spaceIndex == input.length())
+            spaceIndex = -1;
 
-          option = input.substring(dash_index + 1, input.length());
-          if(space_index != -1){
-            sub_option = input.substring(space_index + 1, input.length());
+          option = input.substring(dashIndex + 1, input.length());
+          if(spaceIndex != -1){
+            subOption = input.substring(spaceIndex + 1, input.length());
             //this is with the assumption that the second part of a command will always be a number
-            numIn = sub_option.toInt();
+            numIn = subOption.toInt();
             //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
             if (numIn == 0)
             {
-              space_index = -1;
+              spaceIndex = -1;
               Serial.println("Expected value incorrect enter -? for help");
             }
           }
@@ -113,7 +104,7 @@ void loop() {
               output_help();
           }
           else if(option == "g"){
-              if(space_index == -1){
+              if(spaceIndex == -1){
                 step_to_angle(0);
                 Serial.println("GEAR ANGLE MODE ACTIVATED");
                 mode = GEAR_ANGLE_MODE;
@@ -123,7 +114,7 @@ void loop() {
               }
           }
           else if(option == "m"){
-              if(space_index == -1){
+              if(spaceIndex == -1){
                 step_to_angle(0);
                 Serial.println("MOTOR ANGLE MODE ACTIVATED");
                 mode = MOTOR_ANGLE_MODE;
@@ -144,7 +135,7 @@ void loop() {
             digitalWrite(EN, HIGH);
           }
           else if(option == "gangle"){
-            if(space_index != -1){
+            if(spaceIndex != -1){
               step_to_angle(0);
               fullRotation = numIn;
               fullRotationRatio = fullRotation / FULL_ROTATION_MOTOR;
@@ -198,7 +189,6 @@ void output_help(){
   Serial.println("\t Does not change mode rotates the driven gear to ANGLE, ANGLE must be greater than 0");
   Serial.println("-m");
   Serial.println("\tChanges mode to motor gear mode. The angles now inputted into the system will now be in relation to the motor gear rather than the driven gear rotation");
-  Serial.println("-m ANGLE");
   Serial.println("\t Does not change mode rotates the motor to ANGLE, ANGLE must be greater than 0");
   Serial.println("-ratio RATIO_VAL");
   Serial.println("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0");
@@ -253,13 +243,11 @@ void step_by_angle(float toAngle)
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
-    //TODO: when testing make sure this is the right direction
     Serial.print("Moving CC by ");
     Serial.println(toAngle);
   }
   else{
     digitalWrite(dir, HIGH);
-    //TODO: when testing make sure this is the right direction
     Serial.print("Moving C by ");
     Serial.println(toAngle);
   }
