@@ -18,32 +18,29 @@
 #define MOTOR_ANGLE_MODE 1
 //EN is set  low allowing the motor to be manually turned the currentExpectedRotationValue is reset tp 0 when in this state
 #define REST_MODE 2
-int mode = GEAR_ANGLE_MODE;
 
-//the step angle of the motor
-const float STEP_ANGLE = 0.225;
-//might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
+//might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are shorterested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
-const int FULL_ROTATION_MOTOR = 360;
+const short FULL_ROTATION_MOTOR = 360;
 //The ratio of the driven gear to the motor gear
-int fullRotationRatio = 2;
+short fullRotationRatio = 2;
 //The number of degrees the motor gear must rotate to fully rotate the driven gear
-int fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
+short fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
-float currentExpectedRotationValue;
+double currentExpectedRotationValue = 0;
 
 //Reset Easy Driver pins to default states
 void reset_ED_pins();
 //outputs help info to the serial port
 void output_help();
 //rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
-//finds the most efficient route to the requested rotation (C or CC)and translates it into a value that step_by_angle can use
-void step_to_angle(float toAngle);
+//finds the most efficient route to the requested rotation (C or CC)and translates it shorto a value that step_by_angle can use
+void step_to_angle(double toAngle);
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
-void step_by_angle(float toAngle);
+void step_by_angle(double toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
-void update_current_angle(int angleMoved);
+void update_current_angle(short angleMoved);
 
 void setup() {
   pinMode(stp, OUTPUT);
@@ -64,13 +61,15 @@ void setup() {
 }
 
 void loop() {
-  float toAngle;
+  double toAngle;
   String input;
   String option;
   String subOption;
-  int numIn;
-  int dashIndex;
-  int spaceIndex;
+  short numIn;
+  short dashIndex;
+  short spaceIndex;
+  short mode = GEAR_ANGLE_MODE;
+  
   
   while(Serial.available()){
       digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
@@ -86,7 +85,6 @@ void loop() {
           spaceIndex = input.indexOf(' ', dashIndex);
           if(spaceIndex == input.length())
             spaceIndex = -1;
-
           
           if(spaceIndex != -1){
             subOption = input.substring(spaceIndex + 1, input.length());
@@ -205,7 +203,7 @@ void output_help(){
   Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
 }
 
-void update_current_angle(int angleMoved){
+void update_current_angle(short angleMoved){
   currentExpectedRotationValue += angleMoved;
 
   //keeps the angle positive and under FULL_ROTATION
@@ -224,7 +222,7 @@ void update_current_angle(int angleMoved){
   Serial.println(currentExpectedRotationValue / fullRotationRatio);
 }
 
-void step_to_angle(float toAngle){
+void step_to_angle(double toAngle){
   while(toAngle > fullRotation)
     toAngle -= fullRotation;
   while(toAngle < 0){
@@ -242,9 +240,11 @@ void step_to_angle(float toAngle){
   step_by_angle(toAngle);
 }
 
-void step_by_angle(float toAngle)
+void step_by_angle(double toAngle)
 { 
-  float curAngleMoved;
+  //the step angle of the motor
+  const double STEP_ANGLE = 0.225;
+  double curAngleMoved;
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
@@ -256,10 +256,9 @@ void step_by_angle(float toAngle)
     Serial.print("Moving C by ");
     Serial.println(toAngle);
   }
-  
   if (toAngle != 0)
   {
-    for(curAngleMoved = 0; curAngleMoved <= abs((float)toAngle) /*- STEP_ANGLE*/; curAngleMoved += STEP_ANGLE)
+    for(curAngleMoved = 0; curAngleMoved <= abs(toAngle) /*- STEP_ANGLE*/; curAngleMoved += STEP_ANGLE)
     {
       digitalWrite(stp,HIGH); //Trigger one step forward
       delay(1);//need to check if this can be made smaller ot make motor move faster 
