@@ -3,7 +3,6 @@
  * This program allows for a user to send angles to a stepper motor and ensures that the most efficient path is taken to get to the angle inputted, clockwise or counter clockwise rotation
  * The program currently assumes that the stepper motor driving a gear that is two times larger than it but this can be changed with the commands -ratio ANGLE or -gangle ANGLE commands
  */
-
 //Motor pin definitions
 #define stp 2
 #define dir 3
@@ -18,6 +17,7 @@
 #define MOTOR_ANGLE_MODE 1
 //EN is set  low allowing the motor to be manually turned the currentExpectedRotationValue is reset tp 0 when in this state
 #define REST_MODE 2
+short mode; 
 
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are shorterested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
@@ -43,6 +43,8 @@ void step_by_angle(double toAngle);
 void update_current_angle(short angleMoved);
 
 void setup() {
+  mode = GEAR_ANGLE_MODE;
+  
   pinMode(stp, OUTPUT);
   pinMode(dir, OUTPUT);
   pinMode(MS1, OUTPUT);
@@ -68,7 +70,6 @@ void loop() {
   short numIn;
   short dashIndex;
   short spaceIndex;
-  short mode = GEAR_ANGLE_MODE;
   
   
   while(Serial.available()){
@@ -93,7 +94,7 @@ void loop() {
             //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
           }
 
-          if (numIn == 0)
+          if (numIn == 0 && (spaceIndex != -1))
           {
             option = input.substring(dashIndex + 1, input.length());
             spaceIndex = -1;
