@@ -158,7 +158,7 @@ void loop() {
             Serial.print("Gear ratio: ");
             Serial.println(fullRotationRatio);
           }
-          }
+         }
         else{
           //If no input functions were activated just act according to the current mode
           numIn = input.toInt();
@@ -211,7 +211,7 @@ void update_current_angle(int angleMoved){
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
-  while(currentExpectedRotationValue > fullRotation){
+  while(currentExpectedRotationValue >= fullRotation){
     currentExpectedRotationValue -= fullRotation;
   }
   while(currentExpectedRotationValue < 0){
@@ -267,22 +267,6 @@ void step_by_angle(float toAngle)
       digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
       delay(1);
     }
-    /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
-    * TODO: maybe add this in for getting precise movement
-    if (curAngleMoved != abs(toAngle))
-    {
-      digitalWrite(MS1,HIGH);
-      digitalWrite(MS2,LOW);
-
-      for(curAngleMoved = 0; curAngleMoved <= abs(toAngle) - STEP_ANGLE; curAngleMoved += MICRO_STEP_ANGLE)
-      {
-        digitalWrite(stp,HIGH); //Trigger one step forward
-        delay(1);//need to check if this can be made smaller ot make motor move faster 
-        //TODO look at an acceleration library to increase speed
-        digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-        delay(1);
-      }
-    }*/
   }
   //update current rotation angle
   update_current_angle(toAngle);
