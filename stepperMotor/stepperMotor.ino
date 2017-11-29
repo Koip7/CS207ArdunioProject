@@ -21,7 +21,7 @@
 int mode = GEAR_ANGLE_MODE;
 
 //the step angle of the motor
-const float STEP_ANGLE = 1.8;
+const float STEP_ANGLE = 0.225;
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION_MOTOR = 360;
@@ -87,18 +87,23 @@ void loop() {
           if(spaceIndex == input.length())
             spaceIndex = -1;
 
-          option = input.substring(dashIndex + 1, input.length());
+          
           if(spaceIndex != -1){
             subOption = input.substring(spaceIndex + 1, input.length());
             //this is with the assumption that the second part of a command will always be a number
             numIn = subOption.toInt();
             //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
-            if (numIn == 0)
-            {
-              spaceIndex = -1;
-              Serial.println("Expected value incorrect enter -? for help");
-            }
           }
+
+          if (numIn == 0)
+          {
+            option = input.substring(dashIndex + 1, input.length());
+            spaceIndex = -1;
+            Serial.println("Expected value incorrect enter -? for help");
+          }
+          else
+            option = input.substring(dashIndex + 1, spaceIndex);
+            
           
           if(option == "?"){
               output_help();
@@ -287,6 +292,6 @@ void reset_ED_pins()
 {
   digitalWrite(stp, LOW);
   digitalWrite(dir, LOW);
-  digitalWrite(MS1, LOW);
-  digitalWrite(MS2, LOW);
+  digitalWrite(MS1, HIGH);
+  digitalWrite(MS2, HIGH);
 }
