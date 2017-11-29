@@ -23,13 +23,9 @@ int mode = GEAR_ANGLE_MODE;
 //the step angle of the motor
 const double STEP_ANGLE = 1.8;
 const int NUM_MICRO_STEP_ANGLES = 2;
-//                                                           Full Step
+//                                                          Full Step
 const bool MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
-//                                                           Half Step
-                                                            HIGH, LOW,
-//                                                           Quart Step 
-                                                            LOW, HIGH,
-//                                                           Eighth Step 
+//                                                          eigth Step
                                                             HIGH, HIGH};
 
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
@@ -272,7 +268,8 @@ void step_by_angle(double toAngle)
     
       //iterate until the each step mode has been used until the angle is as close as it gets
       //under assumption that a microstep is always half of the step above it
-      for(; curAngleMoved + STEP_ANGLE / ((curMicroStep + 1) * 2) <= abs(toAngle); curAngleMoved += STEP_ANGLE / ((curMicroStep + 1) * 2))
+      for(; curAngleMoved + STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((curMicroStep + 1) * 8)) <= abs(toAngle); 
+            curAngleMoved += STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((curMicroStep + 1) * 8)))
       {
         Serial.println(curAngleMoved);
         Serial.println(abs(toAngle));
