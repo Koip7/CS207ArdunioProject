@@ -21,7 +21,17 @@
 int mode = GEAR_ANGLE_MODE;
 
 //the step angle of the motor
-const float STEP_ANGLE = 1.8;
+const double STEP_ANGLE = 1.8;
+const int NUM_MICRO_STEP_ANGLES = 2;
+//                                                           Full Step
+const bool MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
+//                                                           Half Step
+                                                            HIGH, LOW,
+//                                                           Quart Step 
+                                                            LOW, HIGH,
+//                                                           Eighth Step 
+                                                            HIGH, HIGH};
+
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const int FULL_ROTATION_MOTOR = 360;
@@ -31,7 +41,7 @@ int fullRotationRatio = 2;
 int fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
-float currentExpectedRotationValue;
+double currentExpectedRotationValue;
 
 //Reset Easy Driver pins to default states
 void reset_ED_pins();
@@ -39,9 +49,9 @@ void reset_ED_pins();
 void output_help();
 //rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
 //finds the most efficient route to the requested rotation (C or CC)and translates it into a value that step_by_angle can use
-void step_to_angle(float toAngle);
+void step_to_angle(double toAngle);
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
-void step_by_angle(float toAngle);
+void step_by_angle(double toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
 void update_current_angle(int angleMoved);
 
@@ -64,7 +74,7 @@ void setup() {
 }
 
 void loop() {
-  float toAngle;
+  double toAngle;
   String input;
   String option;
   String subOption;
@@ -219,7 +229,7 @@ void update_current_angle(int angleMoved){
   Serial.println(currentExpectedRotationValue / fullRotationRatio);
 }
 
-void step_to_angle(float toAngle){
+void step_to_angle(double toAngle){
   while(toAngle > fullRotation)
     toAngle -= fullRotation;
   while(toAngle < 0){
@@ -237,9 +247,9 @@ void step_to_angle(float toAngle){
   step_by_angle(toAngle);
 }
 
-void step_by_angle(float toAngle)
+void step_by_angle(double toAngle)
 { 
-  float curAngleMoved;
+  double curAngleMoved = 0;
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
@@ -254,30 +264,26 @@ void step_by_angle(float toAngle)
   
   if (toAngle != 0)
   {
-    for(curAngleMoved = 0; curAngleMoved <= abs((float)toAngle) /*- STEP_ANGLE*/; curAngleMoved += STEP_ANGLE)
-    {
-      digitalWrite(stp,HIGH); //Trigger one step forward
-      delay(1);//need to check if this can be made smaller ot make motor move faster 
-      //TODO look at an acceleration library to increase speed
-      digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-      delay(1);
-    }
-    /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
-    * TODO: maybe add this in for getting precise movement*/
-    if (curAngleMoved != abs(toAngle))
-    {
-      digitalWrite(MS1,HIGH);
-      digitalWrite(MS2,LOW);
-
-      for(curAngleMoved = 0; curAngleMoved <= abs(toAngle) - STEP_ANGLE; curAngleMoved += MICRO_STEP_ANGLE)
+    //iterate through all step modes
+    for (int curMicroStep = 0; curMicroStep < NUM_MICRO_STEP_ANGLES; curMicroStep ++){  
+      //setting the microstep mode of the stepper motor
+      digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
+      digitalWrite(MS1, MICROSTEP_SIG[curMicroStep  * 2 + 1]);
+    
+      //iterate until the each step mode has been used until the angle is as close as it gets
+      //under assumption that a microstep is always half of the step above it
+      for(; curAngleMoved + STEP_ANGLE / ((curMicroStep + 1) * 2) <= abs(toAngle); curAngleMoved += STEP_ANGLE / ((curMicroStep + 1) * 2))
       {
+        Serial.println(curAngleMoved);
+        Serial.println(abs(toAngle));
+
         digitalWrite(stp,HIGH); //Trigger one step forward
         delay(1);//need to check if this can be made smaller ot make motor move faster 
         //TODO look at an acceleration library to increase speed
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
-    }/**/
+    }
   }
   //update current rotation angle
   update_current_angle(toAngle);
