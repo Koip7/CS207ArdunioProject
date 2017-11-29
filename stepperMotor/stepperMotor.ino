@@ -263,7 +263,7 @@ void step_by_angle(float toAngle)
       delay(1);
     }
     /*micro step code to get close to the exact value since STEP_ANGLE is kinda huge the logic and everything is correct it just seems to a problem with the wiring
-    * TODO: maybe add this in for getting precise movement
+    * TODO: maybe add this in for getting precise movement*/
     if (curAngleMoved != abs(toAngle))
     {
       digitalWrite(MS1,HIGH);
@@ -277,7 +277,7 @@ void step_by_angle(float toAngle)
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
-    }*/
+    }/**/
   }
   //update current rotation angle
   update_current_angle(toAngle);
