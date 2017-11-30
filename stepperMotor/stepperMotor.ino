@@ -3,7 +3,6 @@
  * This program allows for a user to send angles to a stepper motor and ensures that the most efficient path is taken to get to the angle inputted, clockwise or counter clockwise rotation
  * The program currently assumes that the stepper motor driving a gear that is two times larger than it but this can be changed with the commands -ratio ANGLE or -gangle ANGLE commands
  */
-
 //Motor pin definitions
 #define stp 2
 #define dir 3
@@ -18,7 +17,8 @@
 #define MOTOR_ANGLE_MODE 1
 //EN is set  low allowing the motor to be manually turned the currentExpectedRotationValue is reset tp 0 when in this state
 #define REST_MODE 2
-int mode = GEAR_ANGLE_MODE;
+short mode; 
+
 
 //the step angle of the motor
 const double STEP_ANGLE = 1.8;
@@ -28,30 +28,47 @@ const bool MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
 //                                                          eigth Step
                                                             HIGH, HIGH};
 
-//might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are interested in 
+
+
+//might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are shorterested in 
+
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
-const int FULL_ROTATION_MOTOR = 360;
+const short FULL_ROTATION_MOTOR = 360;
 //The ratio of the driven gear to the motor gear
-int fullRotationRatio = 2;
+short fullRotationRatio = 2;
 //The number of degrees the motor gear must rotate to fully rotate the driven gear
-int fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
+short fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
-double currentExpectedRotationValue;
+
+
+
+double currentExpectedRotationValue = 0;
+
 
 //Reset Easy Driver pins to default states
 void reset_ED_pins();
 //outputs help info to the serial port
 void output_help();
 //rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
-//finds the most efficient route to the requested rotation (C or CC)and translates it into a value that step_by_angle can use
+
+
+
+//finds the most efficient route to the requested rotation (C or CC)and translates it shorto a value that step_by_angle can use
+
 void step_to_angle(double toAngle);
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
 void step_by_angle(double toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
+
 void update_current_angle(double angleMoved);
 
+
+
+
 void setup() {
+  mode = GEAR_ANGLE_MODE;
+  
   pinMode(stp, OUTPUT);
   pinMode(dir, OUTPUT);
   pinMode(MS1, OUTPUT);
@@ -74,9 +91,10 @@ void loop() {
   String input;
   String option;
   String subOption;
-  int numIn;
-  int dashIndex;
-  int spaceIndex;
+  short numIn;
+  short dashIndex;
+  short spaceIndex;
+  
   
   while(Serial.available()){
       digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
@@ -92,19 +110,23 @@ void loop() {
           spaceIndex = input.indexOf(' ', dashIndex);
           if(spaceIndex == input.length())
             spaceIndex = -1;
-
-          option = input.substring(dashIndex + 1, input.length());
+          
           if(spaceIndex != -1){
             subOption = input.substring(spaceIndex + 1, input.length());
             //this is with the assumption that the second part of a command will always be a number
             numIn = subOption.toInt();
             //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
-            if (numIn == 0)
-            {
-              spaceIndex = -1;
-              Serial.println("Expected value incorrect enter -? for help");
-            }
           }
+
+          if (numIn == 0 && (spaceIndex != -1))
+          {
+            option = input.substring(dashIndex + 1, input.length());
+            spaceIndex = -1;
+            Serial.println("Expected value incorrect enter -? for help");
+          }
+          else
+            option = input.substring(dashIndex + 1, spaceIndex);
+            
           
           if(option == "?"){
               output_help();
@@ -159,7 +181,7 @@ void loop() {
             Serial.print("Gear ratio: ");
             Serial.println(fullRotationRatio);
           }
-          }
+         }
         else{
           //If no input functions were activated just act according to the current mode
           numIn = input.toInt();
@@ -206,13 +228,17 @@ void output_help(){
   Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
 }
 
+
 void update_current_angle(double angleMoved){
+
+
+
   currentExpectedRotationValue += angleMoved;
 
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
-  while(currentExpectedRotationValue > fullRotation){
+  while(currentExpectedRotationValue >= fullRotation){
     currentExpectedRotationValue -= fullRotation;
   }
   while(currentExpectedRotationValue < 0){
@@ -245,8 +271,14 @@ void step_to_angle(double toAngle){
 
 void step_by_angle(double toAngle)
 { 
+
   double curAngleMoved = 0;
   double stepAngle;
+
+
+
+
+
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
@@ -258,9 +290,9 @@ void step_by_angle(double toAngle)
     Serial.print("Moving C by ");
     Serial.println(toAngle);
   }
-  
   if (toAngle != 0)
   {
+
     //iterate through all step modes
     for (int curMicroStep = 0; curMicroStep < NUM_MICRO_STEP_ANGLES; curMicroStep ++){  
       stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : (curMicroStep * 8));
@@ -283,6 +315,15 @@ void step_by_angle(double toAngle)
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
+
+
+
+
+
+
+
+
+
     }
   }
   //update current rotation angle
@@ -293,6 +334,4 @@ void reset_ED_pins()
 {
   digitalWrite(stp, LOW);
   digitalWrite(dir, LOW);
-  digitalWrite(MS1, LOW);
-  digitalWrite(MS2, LOW);
 }
