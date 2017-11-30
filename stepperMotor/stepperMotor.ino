@@ -17,54 +17,34 @@
 #define MOTOR_ANGLE_MODE 1
 //EN is set  low allowing the motor to be manually turned the currentExpectedRotationValue is reset tp 0 when in this state
 #define REST_MODE 2
-short mode; 
 
-
+short mode;
 //the step angle of the motor
-const double STEP_ANGLE = 1.8;
-const int NUM_MICRO_STEP_ANGLES = 2;
+const float STEP_ANGLE = 1.8;
+const short NUM_MICRO_STEP_ANGLES = 2;
 //                                                          Full Step
-const bool MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
+const short MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
 //                                                          eigth Step
                                                             HIGH, HIGH};
-
-
-
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are shorterested in 
-
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const short FULL_ROTATION_MOTOR = 360;
 //The ratio of the driven gear to the motor gear
 short fullRotationRatio = 2;
 //The number of degrees the motor gear must rotate to fully rotate the driven gear
 short fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
-//This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with long term use
+
+//This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with float term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
-
-
-
-double currentExpectedRotationValue = 0;
-
-
-//Reset Easy Driver pins to default states
-void reset_ED_pins();
+float currentExpectedRotationValue = 0;
 //outputs help info to the serial port
 void output_help();
-//rotates to a specific angle where the motors starting position (currentExpectedRotationValue) is used as the starting angle from which all else is measured
-
-
-
 //finds the most efficient route to the requested rotation (C or CC)and translates it shorto a value that step_by_angle can use
-
-void step_to_angle(double toAngle);
+void step_to_angle(float toAngle);
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
-void step_by_angle(double toAngle);
+void step_by_angle(float toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
-
-void update_current_angle(double angleMoved);
-
-
-
+void update_current_angle(float angleMoved);
 
 void setup() {
   mode = GEAR_ANGLE_MODE;
@@ -75,7 +55,6 @@ void setup() {
   pinMode(MS2, OUTPUT);
   pinMode(EN, OUTPUT);
   
-  reset_ED_pins(); //Set step, direction, microstep and enable pins to default states
   Serial.begin(9600); //Open Serial connection for debugging
   output_help();
   Serial.println("Enter -? for help");
@@ -87,17 +66,14 @@ void setup() {
 }
 
 void loop() {
-  double toAngle;
+  float toAngle;
   String input;
   String option;
-  String subOption;
   short numIn;
   short dashIndex;
   short spaceIndex;
   
-  
   while(Serial.available()){
-      digitalWrite(EN, LOW);  //Pull enable pin low to allow motor control
       input = Serial.readString(); //Read user input and trigger appropriate function
 
       //This is the parsing of the input
@@ -112,9 +88,8 @@ void loop() {
             spaceIndex = -1;
           
           if(spaceIndex != -1){
-            subOption = input.substring(spaceIndex + 1, input.length());
             //this is with the assumption that the second part of a command will always be a number
-            numIn = subOption.toInt();
+            numIn = input.substring(spaceIndex + 1, input.length()).toInt();
             //toInt() ret 0 when the string is invalid hopefully no functions need the number 0
           }
 
@@ -181,6 +156,18 @@ void loop() {
             Serial.print("Gear ratio: ");
             Serial.println(fullRotationRatio);
           }
+          else if(option == "wipe"){
+            if(spaceIndex != -1){
+              for(int i = 9; i < 50; i ++){
+              step_to_angle(numIn);
+              step_to_angle(0);
+              }
+            }
+            else{
+              Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
+              Serial.println(fullRotation);
+            }
+          }
          }
         else{
           //If no input functions were activated just act according to the current mode
@@ -190,17 +177,14 @@ void loop() {
             digitalWrite(EN, LOW);
             Serial.println("Gear angle mode");
             step_to_angle(numIn * fullRotationRatio);
-            reset_ED_pins();
             break;
           case MOTOR_ANGLE_MODE:
             digitalWrite(EN, LOW);
             Serial.println("Motor angle mode");
             step_to_angle(numIn);
-            reset_ED_pins();
             break;
           case REST_MODE:
             Serial.println("No change in rest mode");
-            reset_ED_pins();
           }
           Serial.println("Enter new option");
           Serial.println();
@@ -211,30 +195,29 @@ void loop() {
 }
 
 void output_help(){
-  Serial.println("-g");
-  Serial.println("\tChanges mode to driven gear mode. The angles now inputted into the system will now be in relation to the driven gear rather than the motor gear rotation");
-  Serial.println("-g ANGLE");
-  Serial.println("\t Does not change mode rotates the driven gear to ANGLE, ANGLE must be greater than 0");
-  Serial.println("-m");
-  Serial.println("\tChanges mode to motor gear mode. The angles now inputted into the system will now be in relation to the motor gear rather than the driven gear rotation");
-  Serial.println("\t Does not change mode rotates the motor to ANGLE, ANGLE must be greater than 0");
-  Serial.println("-ratio RATIO_VAL");
-  Serial.println("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0");
-  Serial.println("-reset");
-  Serial.println("\tChanges the most to rest mode allows the motor to be manually rotated\n");
-  Serial.println("-gangle ANGLE");
-  Serial.println("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation");
-  Serial.println("-values");
-  Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
+  //this seems to be taking up alot of dynamic memory (about 42& of the full capcity of the uno) for some reason find a way to reduce this 
+  Serial.println(F("-g"));
+  Serial.println(F("\tChanges mode to driven gear mode. The angles now inputted into the system will now be in relation to the driven gear rather than the motor gear rotation\n-g ANGLE"));
+  Serial.println(F("\t Does not change mode rotates the driven gear to ANGLE, ANGLE must be greater than 0"));
+  Serial.println(F("-m"));
+  Serial.println(F("\tChanges mode to motor gear mode. The angles now inputted into the system will now be in relation to the motor gear rather than the driven gear rotation"));
+  Serial.println(F("\t Does not change mode rotates the motor to ANGLE, ANGLE must be greater than 0"));
+  Serial.println(F("-ratio RATIO_VAL"));
+  Serial.println(F("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0"));
+  Serial.println(F("-reset"));
+  Serial.println(F("\tChanges the most to rest mode allows the motor to be manually rotated\n"));
+  Serial.println(F("-gangle ANGLE"));
+  Serial.println(F("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation"));
+  Serial.println(F("-values"));
+  Serial.println(F("\tOutputs the current Gangle Value and the Gear Ratio"));
 }
 
-
-void update_current_angle(double angleMoved){
-
-
-
-  currentExpectedRotationValue += angleMoved;
-
+void update_current_angle(float angleMoved){
+  
+  currentExpectedRotationValue = angleMoved + currentExpectedRotationValue;
+  //getting rid of the gross values that starts to appear on floats when they are added together multiple times
+  //currentExpectedRotationValue = ((float)((int)(currentExpectedRotationValue * 1000.0))) / 1000.0;
+  
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
@@ -246,12 +229,12 @@ void update_current_angle(double angleMoved){
   }
 
   Serial.print("Current motor angle: ");
-  Serial.println(currentExpectedRotationValue);
+  Serial.println(currentExpectedRotationValue, 6);
   Serial.print("Current driven gear angle: ");
-  Serial.println(currentExpectedRotationValue / fullRotationRatio);
+  Serial.println(currentExpectedRotationValue / fullRotationRatio, 6);
 }
 
-void step_to_angle(double toAngle){
+void step_to_angle(float toAngle){
   while(toAngle > fullRotation)
     toAngle -= fullRotation;
   while(toAngle < 0){
@@ -269,69 +252,49 @@ void step_to_angle(double toAngle){
   step_by_angle(toAngle);
 }
 
-void step_by_angle(double toAngle)
-{ 
-
-  double curAngleMoved = 0;
-  double stepAngle;
-
-
-
-
-
+void step_by_angle(float toAngle){ 
+  float curAngleMoved = 0;
+  float stepAngle;
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
     Serial.print("Moving CC by ");
-    Serial.println(toAngle);
+    Serial.println(toAngle, 6);
   }
   else{
     digitalWrite(dir, HIGH);
     Serial.print("Moving C by ");
-    Serial.println(toAngle);
+    Serial.println(toAngle,6 );
   }
   if (toAngle != 0)
   {
-
-    //iterate through all step modes
-    for (int curMicroStep = 0; curMicroStep < NUM_MICRO_STEP_ANGLES; curMicroStep ++){  
-      stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : (curMicroStep * 8));
+    /* iterate through all step modes, currently only full step might me the quality of the motor/ or driver that I'm using but even though the correct number of steps are
+     * done there is still a small amount of error when using 1/8 step so sticking with only full steps at the moment and this is with the motor under no load
+     */
+    for (short curMicroStep = 0; curMicroStep < 1/*NUM_MICRO_STEP_ANGLES*/; curMicroStep ++){  
+     int  numSteps;
+      stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((float)curMicroStep * 8.0));
+      Serial.print("step angle: ");
+      Serial.println(stepAngle, 6);
       //setting the microstep mode of the stepper motor
-      delay(1);//need to check if this can be made smaller ot make motor move faster 
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
-      digitalWrite(MS2, MICROSTEP_SIG[curMicroStep  * 2 + 1]);
-    
-      //iterate until the each step mode has been used until the angle is as close as it gets
-      //under assumption that a microstep is always half of the step above it
-      for(; curAngleMoved <= abs(toAngle); 
-            curAngleMoved += stepAngle)
-      {
-        Serial.println(stepAngle);
-        Serial.println(curAngleMoved);
+      digitalWrite(MS2, MICROSTEP_SIG[curMicroStep * 2 + 1]);
 
+      //had to keep for looping values in shorts since when the float is continuously added in a for loop the lower decimal points looked like they were getting corrupted
+      //toStep = (abs(toAngle) - curAngleMoved) / stepAngle;
+      for(numSteps = 0; curAngleMoved + stepAngle <= abs(toAngle); curAngleMoved += stepAngle, numSteps++)
+      {
         digitalWrite(stp,HIGH); //Trigger one step forward
         delay(1);//need to check if this can be made smaller ot make motor move faster 
         //TODO look at an acceleration library to increase speed
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
-
-
-
-
-
-
-
-
-
+      Serial.println(numSteps);
+      //curAngleMoved += toStep * stepAngle;
+      Serial.println(curAngleMoved, 6);
     }
   }
   //update current rotation angle
   update_current_angle((toAngle > 0) ? curAngleMoved : -curAngleMoved);
-}
-
-void reset_ED_pins()
-{
-  digitalWrite(stp, LOW);
-  digitalWrite(dir, LOW);
 }
