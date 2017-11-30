@@ -49,7 +49,7 @@ void step_to_angle(double toAngle);
 //Outputs signals to make the stepper motor rotate by a specifc number of degrees.
 void step_by_angle(double toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
-void update_current_angle(int angleMoved);
+void update_current_angle(double angleMoved);
 
 void setup() {
   pinMode(stp, OUTPUT);
@@ -206,7 +206,7 @@ void output_help(){
   Serial.println("\tOutputs the current Gangle Value and the Gear Ratio");
 }
 
-void update_current_angle(int angleMoved){
+void update_current_angle(double angleMoved){
   currentExpectedRotationValue += angleMoved;
 
   //keeps the angle positive and under FULL_ROTATION
@@ -246,6 +246,7 @@ void step_to_angle(double toAngle){
 void step_by_angle(double toAngle)
 { 
   double curAngleMoved = 0;
+  double stepAngle;
   //set direction to rotate
   if(toAngle >= 0){
     digitalWrite(dir, LOW);
@@ -262,15 +263,18 @@ void step_by_angle(double toAngle)
   {
     //iterate through all step modes
     for (int curMicroStep = 0; curMicroStep < NUM_MICRO_STEP_ANGLES; curMicroStep ++){  
+      stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : (curMicroStep * 8));
       //setting the microstep mode of the stepper motor
+      delay(1);//need to check if this can be made smaller ot make motor move faster 
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
       digitalWrite(MS2, MICROSTEP_SIG[curMicroStep  * 2 + 1]);
     
       //iterate until the each step mode has been used until the angle is as close as it gets
       //under assumption that a microstep is always half of the step above it
-      for(; curAngleMoved + STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((curMicroStep + 1) * 8)) <= abs(toAngle); 
-            curAngleMoved += STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((curMicroStep + 1) * 8)))
+      for(; curAngleMoved <= abs(toAngle); 
+            curAngleMoved += stepAngle)
       {
+        Serial.println(stepAngle);
         Serial.println(curAngleMoved);
 
         digitalWrite(stp,HIGH); //Trigger one step forward
@@ -282,7 +286,7 @@ void step_by_angle(double toAngle)
     }
   }
   //update current rotation angle
-  update_current_angle(toAngle);
+  update_current_angle((toAngle > 0) ? curAngleMoved : -curAngleMoved);
 }
 
 void reset_ED_pins()
