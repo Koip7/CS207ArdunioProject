@@ -158,7 +158,7 @@ void loop() {
           }
           else if(option == "wipe"){
             if(spaceIndex != -1){
-              for(int i = 9; i < 50; i ++){
+              for(int i = 0; i < 50; i ++){
               step_to_angle(numIn);
               step_to_angle(0);
               }
@@ -210,6 +210,8 @@ void output_help(){
   Serial.println(F("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation"));
   Serial.println(F("-values"));
   Serial.println(F("\tOutputs the current Gangle Value and the Gear Ratio"));
+  Serial.println(F("-wipe ANGLE"));
+  Serial.println(F("\tRotates the motor btw 0 and ANGLE 20 times"));
 }
 
 void update_current_angle(float angleMoved){
@@ -274,14 +276,12 @@ void step_by_angle(float toAngle){
     for (short curMicroStep = 0; curMicroStep < 1/*NUM_MICRO_STEP_ANGLES*/; curMicroStep ++){  
      int  numSteps;
       stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((float)curMicroStep * 8.0));
-      Serial.print("step angle: ");
-      Serial.println(stepAngle, 6);
+      //Serial.print("step angle: ");
+      //Serial.println(stepAngle, 6);
       //setting the microstep mode of the stepper motor
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
       digitalWrite(MS2, MICROSTEP_SIG[curMicroStep * 2 + 1]);
 
-      //had to keep for looping values in shorts since when the float is continuously added in a for loop the lower decimal points looked like they were getting corrupted
-      //toStep = (abs(toAngle) - curAngleMoved) / stepAngle;
       for(numSteps = 0; curAngleMoved + stepAngle <= abs(toAngle); curAngleMoved += stepAngle, numSteps++)
       {
         digitalWrite(stp,HIGH); //Trigger one step forward
@@ -290,9 +290,8 @@ void step_by_angle(float toAngle){
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
-      Serial.println(numSteps);
-      //curAngleMoved += toStep * stepAngle;
-      Serial.println(curAngleMoved, 6);
+      //Serial.println(numSteps);
+      //Serial.println(curAngleMoved, 6);
     }
   }
   //update current rotation angle
