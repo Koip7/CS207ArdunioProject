@@ -264,7 +264,7 @@ void step_by_angle(double toAngle)
     for (int curMicroStep = 0; curMicroStep < NUM_MICRO_STEP_ANGLES; curMicroStep ++){  
       //setting the microstep mode of the stepper motor
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
-      digitalWrite(MS1, MICROSTEP_SIG[curMicroStep  * 2 + 1]);
+      digitalWrite(MS2, MICROSTEP_SIG[curMicroStep  * 2 + 1]);
     
       //iterate until the each step mode has been used until the angle is as close as it gets
       //under assumption that a microstep is always half of the step above it
@@ -272,7 +272,6 @@ void step_by_angle(double toAngle)
             curAngleMoved += STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((curMicroStep + 1) * 8)))
       {
         Serial.println(curAngleMoved);
-        Serial.println(abs(toAngle));
 
         digitalWrite(stp,HIGH); //Trigger one step forward
         delay(1);//need to check if this can be made smaller ot make motor move faster 
