@@ -294,7 +294,7 @@ void step_by_angle(float toAngle){
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
       digitalWrite(MS2, MICROSTEP_SIG[curMicroStep * 2 + 1]);
 
-      for(numSteps = 0; curAngleMoved + stepAngle <= abs(toAngle); curAngleMoved += stepAngle, numSteps++)
+      for(numSteps = 0; (curAngleMoved + stepAngle) - 0.0005f <= abs(toAngle); curAngleMoved += stepAngle, numSteps++)
       {
         digitalWrite(stp,HIGH); //Trigger one step forward
         delay(1);//need to check if this can be made smaller ot make motor move faster 
@@ -302,8 +302,6 @@ void step_by_angle(float toAngle){
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
-      
-      //Serial.println(numSteps);
       //Serial.println(curAngleMoved, 6);
     }
   }
