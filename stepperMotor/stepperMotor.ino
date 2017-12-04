@@ -10,6 +10,11 @@
 #define MS2 5
 #define EN  6
 
+//this value states whether or not micro stepping is used
+#define MICROSTEPPING 0
+
+bool isMicroStepping;
+
 //The various modes the system can be in
 //The angle entered while in this mode corresponds to the angle of the driven gear
 #define GEAR_ANGLE_MODE 0
@@ -63,6 +68,7 @@ void setup() {
   Serial.println("Enter angle to rotate to:");
   Serial.setTimeout(50);
   currentExpectedRotationValue = 0;
+  isMicroStepping = false;
 }
 
 void loop() {
@@ -155,6 +161,8 @@ void loop() {
             Serial.println(fullRotation);
             Serial.print("Gear ratio: ");
             Serial.println(fullRotationRatio);
+            Serial.print("Microstepping is: ");
+            Serial.println(isMicroStepping);
           }
           else if(option == "wipe"){
             if(spaceIndex != -1){
@@ -167,6 +175,11 @@ void loop() {
               Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
               Serial.println(fullRotation);
             }
+          }
+          else if(option == "micro"){
+            isMicroStepping = !isMicroStepping;
+            Serial.print("Microstepping is: ");
+            Serial.println(isMicroStepping);
           }
          }
         else{
@@ -212,14 +225,13 @@ void output_help(){
   Serial.println(F("\tOutputs the current Gangle Value and the Gear Ratio"));
   Serial.println(F("-wipe ANGLE"));
   Serial.println(F("\tRotates the motor btw 0 and ANGLE 20 times"));
+  Serial.println(F("-micro"));
+  Serial.println(F("\toggles wether or not the system is using micro steeping or not"));
 }
 
-void update_current_angle(float angleMoved){
-  
+void update_current_angle(float angleMoved){  
   currentExpectedRotationValue = angleMoved + currentExpectedRotationValue;
-  //getting rid of the gross values that starts to appear on floats when they are added together multiple times
-  //currentExpectedRotationValue = ((float)((int)(currentExpectedRotationValue * 1000.0))) / 1000.0;
-  
+
   //keeps the angle positive and under FULL_ROTATION
   //theres probally an effcient mathematiical way to do this
   //TODO: find this way
@@ -273,11 +285,11 @@ void step_by_angle(float toAngle){
     /* iterate through all step modes, currently only full step might me the quality of the motor/ or driver that I'm using but even though the correct number of steps are
      * done there is still a small amount of error when using 1/8 step so sticking with only full steps at the moment and this is with the motor under no load
      */
-    for (short curMicroStep = 0; curMicroStep < 1/*NUM_MICRO_STEP_ANGLES*/; curMicroStep ++){  
-     int  numSteps;
+    for (short curMicroStep = 0; curMicroStep < ((isMicroStepping == false) ? 1 : NUM_MICRO_STEP_ANGLES); curMicroStep ++){  
+     int  numSteps = 0;
       stepAngle = STEP_ANGLE / ((curMicroStep == 0) ? 1 : ((float)curMicroStep * 8.0));
-      //Serial.print("step angle: ");
-      //Serial.println(stepAngle, 6);
+      Serial.print("step angle: ");
+      Serial.println(stepAngle, 6);
       //setting the microstep mode of the stepper motor
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
       digitalWrite(MS2, MICROSTEP_SIG[curMicroStep * 2 + 1]);
@@ -290,6 +302,7 @@ void step_by_angle(float toAngle){
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
         delay(1);
       }
+      
       //Serial.println(numSteps);
       //Serial.println(curAngleMoved, 6);
     }
