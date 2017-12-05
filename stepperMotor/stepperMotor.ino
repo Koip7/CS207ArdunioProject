@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 /* Stepper motor control by JSmithers
  *  
  * This program allows for a user to send angles to a stepper motor and ensures that the most efficient path is taken to get to the angle inputted, clockwise or counter clockwise rotation
@@ -9,6 +11,8 @@
 #define MS1 4
 #define MS2 5
 #define EN  6
+
+#define gangleAddress 0
 
 //this value states whether or not micro stepping is used
 #define MICROSTEPPING 0
@@ -34,10 +38,13 @@ const short MICROSTEP_SIG[(NUM_MICRO_STEP_ANGLES + 1) * 2] = {LOW, LOW,
 //might not be needed since its fairly straight forward may be helpful when a larger attached gear is added though and that is the value we are shorterested in 
 //the larger gear is approximately 160 and the smaller is 20 mm so when they are attached the new value of full rotation should be about 360 * 8
 const short FULL_ROTATION_MOTOR = 360;
+
 //The ratio of the driven gear to the motor gear
-short fullRotationRatio = 2;
+float fullRotationRatio;// = 2;
+
 //The number of degrees the motor gear must rotate to fully rotate the driven gear
-short fullRotation = FULL_ROTATION_MOTOR * fullRotationRatio;
+float fullRotation;// = FULL_ROTATION_MOTOR * fullRotationRatio;
+float fullRotationSaved;
 
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with float term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
@@ -50,7 +57,8 @@ void step_to_angle(float toAngle);
 void step_by_angle(float toAngle);
 //cleans up current angle so we dont get extremely large angle values and we have data that we can actually use in the future
 void update_current_angle(float angleMoved);
-
+//writes the gangle value to EEPROM if its different from the value already stored there
+void write_gangle_if_changed();
 void setup() {
   mode = GEAR_ANGLE_MODE;
   
@@ -60,15 +68,33 @@ void setup() {
   pinMode(MS2, OUTPUT);
   pinMode(EN, OUTPUT);
   
-  Serial.begin(9600); //Open Serial connection for debugging
+  Serial.begin(9600); 
+
+  EEPROM.get(gangleAddress, fullRotationSaved);
+  fullRotation = fullRotationSaved;
+  fullRotationRatio = fullRotation / FULL_ROTATION_MOTOR;
+
+  Serial.print(F("The gangle value read from EEPROOM is: "));
+  Serial.println(fullRotation);
+  Serial.println(F("If this is not the value that you want use the gangle or ratio command to change it"));
+  Serial.println(F("The value can also be updated using the save command for when the system is reset"));
+  
   output_help();
-  Serial.println("Enter -? for help");
-  Serial.println("Begin motor control");
+  Serial.println(F("Enter -? for help"));
+  Serial.println(F("Begin motor control"));
   //Print function list for user selection
-  Serial.println("Enter angle to rotate to:");
+  Serial.println(F("Enter angle to rotate to:"));
   Serial.setTimeout(50);
   currentExpectedRotationValue = 0;
   isMicroStepping = false;
+}
+
+void write_gangle_if_changed(){
+  if(fullRotation != fullRotationSaved){
+       EEPROM.put(gangleAddress, fullRotation);
+       Serial.println(F("updated gangle in EEPROM"));
+       fullRotationSaved = fullRotation;
+  }
 }
 
 void loop() {
@@ -103,7 +129,7 @@ void loop() {
           {
             option = input.substring(dashIndex + 1, input.length());
             spaceIndex = -1;
-            Serial.println("Expected value incorrect enter -? for help");
+            Serial.println(F("Expected value incorrect enter -? for help"));
           }
           else
             option = input.substring(dashIndex + 1, spaceIndex);
@@ -115,7 +141,7 @@ void loop() {
           else if(option == "g"){
               if(spaceIndex == -1){
                 step_to_angle(0);
-                Serial.println("GEAR ANGLE MODE ACTIVATED");
+                Serial.println(F("GEAR ANGLE MODE ACTIVATED"));
                 mode = GEAR_ANGLE_MODE;
               }
               else{
@@ -125,7 +151,7 @@ void loop() {
           else if(option == "m"){
               if(spaceIndex == -1){
                 step_to_angle(0);
-                Serial.println("MOTOR ANGLE MODE ACTIVATED");
+                Serial.println(F("MOTOR ANGLE MODE ACTIVATED"));
                 mode = MOTOR_ANGLE_MODE;
               }
               else{
@@ -138,7 +164,7 @@ void loop() {
             fullRotation = numIn * FULL_ROTATION_MOTOR;
           }
           else if(option == "reset"){
-            Serial.println("MOTOR REST MODE ACTIVATED");
+            Serial.println(F("MOTOR REST MODE ACTIVATED"));
             currentExpectedRotationValue = 0;
             mode = REST_MODE;
             digitalWrite(EN, HIGH);
@@ -148,20 +174,19 @@ void loop() {
               step_to_angle(0);
               fullRotation = numIn;
               fullRotationRatio = fullRotation / FULL_ROTATION_MOTOR;
-              Serial.print("Set driven gear full rotation to: ");
+              Serial.print(F("Set driven gear full rotation to: "));
               Serial.println(numIn);
             }
-            else{
-              Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
-              Serial.println(fullRotation);
-            }
+          }
+          else if(option == "save"){
+            write_gangle_if_changed();
           }
           else if(option == "values"){
-            Serial.print("Gangle: ");
+            Serial.print(F("Gangle: "));
             Serial.println(fullRotation);
-            Serial.print("Gear ratio: ");
+            Serial.print(F("Gear ratio: "));
             Serial.println(fullRotationRatio);
-            Serial.print("Microstepping is: ");
+            Serial.print(F("Microstepping is: "));
             Serial.println(isMicroStepping);
           }
           else if(option == "wipe"){
@@ -172,13 +197,13 @@ void loop() {
               }
             }
             else{
-              Serial.print("Number of degrees that motor must turn for driven gear to turn(Gangle): ");
+              Serial.print(F("Number of degrees that motor must turn for driven gear to turn(Gangle): "));
               Serial.println(fullRotation);
             }
           }
           else if(option == "micro"){
             isMicroStepping = !isMicroStepping;
-            Serial.print("Microstepping is: ");
+            Serial.print(F("Microstepping is: "));
             Serial.println(isMicroStepping);
           }
          }
@@ -188,18 +213,18 @@ void loop() {
           switch(mode){
           case GEAR_ANGLE_MODE:
             digitalWrite(EN, LOW);
-            Serial.println("Gear angle mode");
+            Serial.println(F("Gear angle mode"));
             step_to_angle(numIn * fullRotationRatio);
             break;
           case MOTOR_ANGLE_MODE:
             digitalWrite(EN, LOW);
-            Serial.println("Motor angle mode");
+            Serial.println(F("Motor angle mode"));
             step_to_angle(numIn);
             break;
           case REST_MODE:
-            Serial.println("No change in rest mode");
+            Serial.println(F("No change in rest mode"));
           }
-          Serial.println("Enter new option");
+          Serial.println(F("Enter new option"));
           Serial.println();
         }
         //Tabbing is off here messing with me TODO:fix this
@@ -226,7 +251,9 @@ void output_help(){
   Serial.println(F("-wipe ANGLE"));
   Serial.println(F("\tRotates the motor btw 0 and ANGLE 20 times"));
   Serial.println(F("-micro"));
-  Serial.println(F("\toggles wether or not the system is using micro steeping or not"));
+  Serial.println(F("\ttoggles wether or not the system is using micro steeping or not"));
+  Serial.println(F("-save"));
+  Serial.println(F("\tsaves gangle to EEPROM if different from the value already stored there"));
 }
 
 void update_current_angle(float angleMoved){  
@@ -242,9 +269,9 @@ void update_current_angle(float angleMoved){
     currentExpectedRotationValue += fullRotation;
   }
 
-  Serial.print("Current motor angle: ");
+  Serial.print(F("Current motor angle: "));
   Serial.println(currentExpectedRotationValue, 6);
-  Serial.print("Current driven gear angle: ");
+  Serial.print(F("Current driven gear angle: "));
   Serial.println(currentExpectedRotationValue / fullRotationRatio, 6);
 }
 
