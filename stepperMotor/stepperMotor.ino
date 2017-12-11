@@ -12,7 +12,14 @@
 #define MS2 5
 #define EN  6
 
-#define gangleAddress 0
+//For servo control
+#define SERV 8
+#include <Servo.h>
+Servo servo;
+
+
+#define GANGLEADDRESS 0
+#define STEPSPEEDADDRESS 20
 
 //this value states whether or not micro stepping is used
 #define MICROSTEPPING 0
@@ -46,6 +53,10 @@ float fullRotationRatio;// = 2;
 float fullRotation;// = FULL_ROTATION_MOTOR * fullRotationRatio;
 float fullRotationSaved;
 
+//the tome waited in between each step
+short stepSpeed;
+short stepSpeedSaved;
+
 //This value is used to store the current value of the rotation since this uses dead reckoning essentially this may be an issue in the future with float term use
 //TODO find a replacement for this or some way to prove this is true maybe a LED over a light resistor every 360 degrees signal and comapre it to this value to check and ensure that this is correct
 float currentExpectedRotationValue = 0;
@@ -60,6 +71,9 @@ void update_current_angle(float angleMoved);
 //writes the gangle value to EEPROM if its different from the value already stored there
 void write_gangle_if_changed();
 void setup() {
+  //for servo control
+  servo.attach(SERV);
+  
   mode = GEAR_ANGLE_MODE;
   
   pinMode(stp, OUTPUT);
@@ -68,34 +82,50 @@ void setup() {
   pinMode(MS2, OUTPUT);
   pinMode(EN, OUTPUT);
   
-  Serial.begin(9600); 
+  Serial.begin(115200); 
 
-  EEPROM.get(gangleAddress, fullRotationSaved);
+  EEPROM.get(GANGLEADDRESS, fullRotationSaved);
   fullRotation = fullRotationSaved;
   fullRotationRatio = fullRotation / FULL_ROTATION_MOTOR;
 
+  EEPROM.get(STEPSPEEDADDRESS, stepSpeedSaved);
+  stepSpeed = stepSpeedSaved;
+
   Serial.print(F("The gangle value read from EEPROOM is: "));
   Serial.println(fullRotation);
-  Serial.println(F("If this is not the value that you want use the gangle or ratio command to change it"));
-  Serial.println(F("The value can also be updated using the save command for when the system is reset"));
+  Serial.println(F("If this is not the value that you want use the '-gangle' or '-ratio' command to change it"));
+  Serial.print(F("The step speed value read from EEPROOM is: "));
+  Serial.println(stepSpeed);
+  Serial.println(F("If this is not the value that you want use the '-speed' command to change it"));
+  Serial.println(F("These value can also be updated using the save command for when the system is reset"));
   
   output_help();
   Serial.println(F("Enter -? for help"));
   Serial.println(F("Begin motor control"));
   //Print function list for user selection
   Serial.println(F("Enter angle to rotate to:"));
-  Serial.setTimeout(50);
+  Serial.setTimeout(10);
   currentExpectedRotationValue = 0;
   isMicroStepping = false;
 }
 
 void write_gangle_if_changed(){
   if(fullRotation != fullRotationSaved){
-       EEPROM.put(gangleAddress, fullRotation);
+       EEPROM.put(GANGLEADDRESS, fullRotation);
        Serial.println(F("updated gangle in EEPROM"));
        fullRotationSaved = fullRotation;
   }
 }
+
+void write_stepSpeed_if_changed(){
+  if(stepSpeed != stepSpeedSaved){
+       EEPROM.put(STEPSPEEDADDRESS, stepSpeed);
+       Serial.println(F("updated speed in EEPROM"));
+       stepSpeedSaved = stepSpeed;
+  }
+}
+
+unsigned long time;
 
 void loop() {
   float toAngle;
@@ -112,7 +142,8 @@ void loop() {
       /*Currently its pretty inefficient
         TODO:Make this better
       */
-      if(input.length() > 0){
+      
+      if(input.length() > 0){        
         dashIndex = input.indexOf('-');
         if(input.length() > dashIndex && dashIndex != -1){
           spaceIndex = input.indexOf(' ', dashIndex);
@@ -180,6 +211,7 @@ void loop() {
           }
           else if(option == "save"){
             write_gangle_if_changed();
+            write_stepSpeed_if_changed();
           }
           else if(option == "values"){
             Serial.print(F("Gangle: "));
@@ -188,6 +220,8 @@ void loop() {
             Serial.println(fullRotationRatio);
             Serial.print(F("Microstepping is: "));
             Serial.println(isMicroStepping);
+            Serial.print(F("Step speed is is: "));
+            Serial.println(stepSpeed);
           }
           else if(option == "wipe"){
             if(spaceIndex != -1){
@@ -206,6 +240,18 @@ void loop() {
             Serial.print(F("Microstepping is: "));
             Serial.println(isMicroStepping);
           }
+          else if(option == "servo"){
+            if(spaceIndex != -1){
+                servo.write(numIn);
+                Serial.println("Done Rotating to " + input);
+            }
+          }
+          else if(option == "speed"){
+            if(spaceIndex != -1){
+                stepSpeed = numIn;
+                Serial.println("Changed Step Speed to " + input);
+            }
+          } 
          }
         else{
           //If no input functions were activated just act according to the current mode
@@ -227,10 +273,12 @@ void loop() {
           Serial.println(F("Enter new option"));
           Serial.println();
         }
+        Serial.flush();
         //Tabbing is off here messing with me TODO:fix this
     }
-  }      
-}
+  }
+}      
+
 
 void output_help(){
   //this seems to be taking up alot of dynamic memory (about 42& of the full capcity of the uno) for some reason find a way to reduce this 
@@ -254,6 +302,10 @@ void output_help(){
   Serial.println(F("\ttoggles wether or not the system is using micro steeping or not"));
   Serial.println(F("-save"));
   Serial.println(F("\tsaves gangle to EEPROM if different from the value already stored there"));
+  Serial.println(F("-speed VAL"));
+  Serial.println(F("\tused to change the delay to VAL in betweem each step"));
+  Serial.println(F("-servo VAL"));
+  Serial.println(F("\trotates the servo to VAL"));
 }
 
 void update_current_angle(float angleMoved){  
@@ -321,14 +373,16 @@ void step_by_angle(float toAngle){
       digitalWrite(MS1, MICROSTEP_SIG[curMicroStep * 2]);
       digitalWrite(MS2, MICROSTEP_SIG[curMicroStep * 2 + 1]);
 
-      for(numSteps = 0; (curAngleMoved + stepAngle) - 0.0005f <= abs(toAngle); curAngleMoved += stepAngle, numSteps++)
+      int i = 0;
+      for(numSteps = 0; (curAngleMoved + stepAngle) - 0.0005f <= abs(toAngle); curAngleMoved += stepAngle, i+=2)
       {
         digitalWrite(stp,HIGH); //Trigger one step forward
-        delay(1);//need to check if this can be made smaller ot make motor move faster 
+        delayMicroseconds(stepSpeed);//need to check if this can be made smaller ot make motor move faster 
         //TODO look at an acceleration library to increase speed
         digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-        delay(1);
+        delayMicroseconds(stepSpeed);
       }
+       Serial.print(i);
       //Serial.println(curAngleMoved, 6);
     }
   }
