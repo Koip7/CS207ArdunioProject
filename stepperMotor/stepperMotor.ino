@@ -287,11 +287,11 @@ void output_help(){
   Serial.println(F("\t Does not change mode rotates the driven gear to ANGLE, ANGLE must be greater than 0"));
   Serial.println(F("-m"));
   Serial.println(F("\tChanges mode to motor gear mode. The angles now inputted into the system will now be in relation to the motor gear rather than the driven gear rotation"));
-  Serial.println(F("\t Does not change mode rotates the motor to ANGLE, ANGLE must be greater than 0"));
+  Serial.println(F("-m ANGLE\n\tDoes not change mode rotates the motor gear to ANGLE, ANGLE must be greater than 0"));
   Serial.println(F("-ratio RATIO_VAL"));
   Serial.println(F("\tChanges the gear ratio of the driven gear vs the motor gear to RATIO_VAL, RATIO_VAL must be greater than 0"));
   Serial.println(F("-reset"));
-  Serial.println(F("\tChanges the most to rest mode allows the motor to be manually rotated\n"));
+  Serial.println(F("\tChanges the most to rest mode allows the motor to be manually rotated. When the mode is changed the current angle is treated as zero\n"));
   Serial.println(F("-gangle ANGLE"));
   Serial.println(F("\tChanges the driven gear angle. ANGLE is the number of degrees the motor must rotate for the driven gear to make a full rotation"));
   Serial.println(F("-values"));
